@@ -4,15 +4,17 @@ set -e
 echo "🔍 Checking Python version..."
 python3 --version
 
-echo "🔍 Checking installed packages location..."
-python3 -c "import sys; print('Python path:', sys.path)"
+# Add common package installation directories to PYTHONPATH
+export PYTHONPATH="/opt/render/project/src/.venv/lib/python3.11/site-packages:$PYTHONPATH"
+export PYTHONPATH="/opt/render/.local/lib/python3.11/site-packages:$PYTHONPATH"
+export PYTHONPATH="/usr/local/lib/python3.11/site-packages:$PYTHONPATH"
+export PATH="/opt/render/.local/bin:$PATH"
 
-echo "🔍 Looking for uvicorn..."
-python3 -c "import uvicorn; print('✅ uvicorn found:', uvicorn.__version__)" || {
-    echo "❌ uvicorn not found in Python path"
-    echo "📦 Attempting to install with --break-system-packages..."
-    pip3 install --break-system-packages uvicorn
-}
+echo "📦 Installing all requirements to user directory..."
+pip3 install --user -r requirements.txt
+
+echo "🔍 Verifying packages..."
+python3 -c "import fastapi, uvicorn; print('✅ All packages found')"
 
 echo "🚀 Starting server..."
 exec python3 -m uvicorn backend.main:app --host 0.0.0.0 --port "$PORT"
