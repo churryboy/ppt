@@ -395,7 +395,13 @@ def parse_pptx(file_path: str, output_dir: str) -> List[Dict]:
     
     # Convert slides to actual screenshots (only for slides with visual content)
     print(f"Generating screenshots for {len(slides_with_content)} slides with visual content...")
-    image_paths = convert_pptx_to_images(file_path, output_dir, slides_to_include=slides_with_content)
+    try:
+        image_paths = convert_pptx_to_images(file_path, output_dir, slides_to_include=slides_with_content)
+        print(f"✅ Successfully generated {len(image_paths)} screenshots")
+    except Exception as e:
+        print(f"⚠️  Warning: Screenshot generation failed: {e}")
+        print(f"⚠️  Continuing with text-only mode (LibreOffice/Poppler may not be installed)")
+        image_paths = []  # Continue without screenshots
     
     slides_data = []
     screenshot_index = 0
