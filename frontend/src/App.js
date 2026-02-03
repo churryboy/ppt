@@ -3,7 +3,8 @@ import axios from 'axios';
 import Login from './Login';
 import './App.css';
 
-const API_BASE_URL = 'http://localhost:8000';
+// Use relative URLs for API calls (works both locally with proxy and in production)
+const API_BASE_URL = '';
 
 function App() {
   const [presentations, setPresentations] = useState([]);
