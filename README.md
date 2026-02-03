@@ -274,8 +274,22 @@ pip install -r requirements.txt
 ### Local Development
 Already configured! Just run the scripts.
 
-### Production Deployment Options
-- **Docker**: Container-based deployment
+### Deploy to Render (Recommended)
+The easiest way to deploy this application to production:
+
+```bash
+# See detailed deployment guide
+cat RENDER_DEPLOYMENT.md
+```
+
+**Quick Deploy:**
+- **Build Command**: `pip install -r requirements.txt && cd frontend && npm install && npm run build && cd ..`
+- **Start Command**: `uvicorn backend.main:app --host 0.0.0.0 --port $PORT`
+
+📖 **See [RENDER_DEPLOYMENT.md](RENDER_DEPLOYMENT.md) for complete instructions**
+
+### Other Production Deployment Options
+- **Docker**: Container-based deployment (see Dockerfile and docker-compose.yml)
 - **Heroku**: Easy cloud deployment
 - **AWS/GCP/Azure**: Cloud infrastructure
 - **VPS**: Self-hosted option

@@ -598,6 +598,16 @@ async def delete_archived_slide(
     }
 
 
+# Serve React frontend in production (after all API routes are defined)
+FRONTEND_BUILD = Path(__file__).parent.parent / "frontend" / "build"
+if FRONTEND_BUILD.exists():
+    print(f"✅ Serving frontend from {FRONTEND_BUILD}")
+    app.mount("/", StaticFiles(directory=str(FRONTEND_BUILD), html=True), name="frontend")
+else:
+    print(f"⚠️  Frontend build not found at {FRONTEND_BUILD}")
+    print("   Run 'cd frontend && npm run build' to create production build")
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

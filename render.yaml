@@ -1,0 +1,41 @@
+services:
+  # Main web service - Backend + Frontend
+  - type: web
+    name: ppt-report-repository
+    env: python
+    region: oregon
+    plan: free
+    buildCommand: |
+      # Install system dependencies
+      apt-get update && apt-get install -y libreoffice poppler-utils
+      
+      # Install Python dependencies
+      pip install -r requirements.txt
+      
+      # Build frontend
+      cd frontend
+      npm install
+      npm run build
+      cd ..
+    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: SECRET_KEY
+        generateValue: true
+      - key: NODE_VERSION
+        value: 18
+    
+    # Persistent disk for database and uploads (optional, requires paid plan)
+    # disk:
+    #   name: ppt-data
+    #   mountPath: /data
+    #   sizeGB: 1
+
+# Optional: Separate PostgreSQL database (recommended for production)
+# databases:
+#   - name: ppt-postgres
+#     databaseName: ppt_db
+#     user: ppt_user
+#     plan: free
+
