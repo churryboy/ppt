@@ -46,8 +46,9 @@ RUN mkdir -p uploads slides archives
 # Expose port
 EXPOSE 8000
 
-# Set environment variable for Python path
+# Set environment variables
 ENV PYTHONPATH=/app/backend:$PYTHONPATH
+ENV PORT=8000
 
 # Start the application
-CMD ["python3", "-m", "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "-c", "cd /app && python3 -m uvicorn backend.main:app --host 0.0.0.0 --port ${PORT}"]
