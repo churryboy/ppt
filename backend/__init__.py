@@ -1,0 +1,2 @@
+"""PowerPoint Search Platform Backend."""
+
