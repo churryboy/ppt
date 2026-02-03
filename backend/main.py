@@ -7,7 +7,7 @@ from typing import List, Optional
 from pathlib import Path
 from datetime import datetime
 
-from fastapi import FastAPI, UploadFile, File, Depends, HTTPException, Query, Header
+from fastapi import FastAPI, UploadFile, File, Depends, HTTPException, Query, Header, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
@@ -147,14 +147,59 @@ async def get_current_user_info(current_user: User = Depends(get_current_user)):
     return {"user": current_user.to_dict()}
 
 
+def process_presentation_background(file_path: str, presentation_id: int, user_id: int):
+    """Background task to process presentation and generate slides."""
+    from database import SessionLocal
+    db = SessionLocal()
+    
+    try:
+        print(f"🔄 Background processing started for presentation {presentation_id}")
+        
+        # Parse slides
+        slides_output_dir = SLIDES_DIR / str(presentation_id)
+        slides_data = parse_pptx(file_path, str(slides_output_dir))
+        
+        # Create slide records
+        for slide_data in slides_data:
+            slide = Slide(
+                presentation_id=presentation_id,
+                slide_number=slide_data["slide_number"],
+                title=slide_data["title"],
+                text_content=slide_data["text_content"],
+                notes=slide_data["notes"],
+                image_path=slide_data["image_path"],
+                user_id=user_id
+            )
+            db.add(slide)
+        
+        db.commit()
+        print(f"✅ Background processing completed for presentation {presentation_id}")
+        
+    except Exception as e:
+        print(f"❌ Background processing failed for presentation {presentation_id}: {e}")
+        traceback.print_exc()
+        # Mark presentation as failed or delete it
+        presentation = db.query(Presentation).filter(Presentation.id == presentation_id).first()
+        if presentation:
+            db.delete(presentation)
+            db.commit()
+        # Clean up file
+        if Path(file_path).exists():
+            Path(file_path).unlink()
+    finally:
+        db.close()
+
+
 @app.post("/api/upload")
 async def upload_presentation(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
     Upload a PowerPoint presentation and parse it into slides (requires authentication).
+    Processing happens in background for better performance.
     """
     # Validate file type
     if not file.filename.endswith(('.pptx', '.ppt')):
@@ -175,56 +220,42 @@ async def upload_presentation(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
     
-    # Parse PowerPoint file
+    # Get basic presentation info (quick operation)
     try:
-        # Get presentation info
         ppt_info = get_presentation_info(str(file_path))
-        
-        # Create presentation record
-        presentation = Presentation(
-            user_id=current_user.id,
-            filename=safe_filename,
-            original_filename=file.filename,
-            slide_count=ppt_info["slide_count"]
-        )
-        db.add(presentation)
-        db.commit()
-        db.refresh(presentation)
-        
-        # Parse slides
-        slides_output_dir = SLIDES_DIR / str(presentation.id)
-        slides_data = parse_pptx(str(file_path), str(slides_output_dir))
-        
-        # Create slide records
-        for slide_data in slides_data:
-            slide = Slide(
-                presentation_id=presentation.id,
-                slide_number=slide_data["slide_number"],
-                title=slide_data["title"],
-                text_content=slide_data["text_content"],
-                notes=slide_data["notes"],
-                image_path=slide_data["image_path"]
-            )
-            db.add(slide)
-        
-        db.commit()
-        
-        return {
-            "success": True,
-            "presentation_id": presentation.id,
-            "filename": file.filename,
-            "slide_count": ppt_info["slide_count"],
-            "message": f"Successfully uploaded and parsed {ppt_info['slide_count']} slides"
-        }
-        
     except Exception as e:
-        # Print full traceback for debugging
-        print("ERROR during upload:")
-        traceback.print_exc()
-        # Clean up on error
         if file_path.exists():
             file_path.unlink()
-        raise HTTPException(status_code=500, detail=f"Failed to parse presentation: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to read presentation: {str(e)}")
+    
+    # Create presentation record immediately
+    presentation = Presentation(
+        user_id=current_user.id,
+        filename=safe_filename,
+        original_filename=file.filename,
+        slide_count=ppt_info["slide_count"]
+    )
+    db.add(presentation)
+    db.commit()
+    db.refresh(presentation)
+    
+    # Process slides in background (slow operation with LibreOffice)
+    background_tasks.add_task(
+        process_presentation_background,
+        str(file_path),
+        presentation.id,
+        current_user.id
+    )
+    
+    # Return immediately
+    return {
+        "success": True,
+        "presentation_id": presentation.id,
+        "filename": file.filename,
+        "slide_count": ppt_info["slide_count"],
+        "message": f"Upload successful! Processing {ppt_info['slide_count']} slides in background...",
+        "status": "processing"
+    }
 
 
 @app.get("/api/presentations")

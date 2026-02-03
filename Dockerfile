@@ -50,8 +50,8 @@ EXPOSE 8000
 ENV PYTHONPATH=/app/backend:$PYTHONPATH
 ENV PORT=8000
 
-# Install gunicorn for production server with multiple workers
-RUN pip install --no-cache-dir gunicorn
+# Install gunicorn and PostgreSQL support for production
+RUN pip install --no-cache-dir gunicorn psycopg2-binary
 
-# Start the application with gunicorn + uvicorn workers (4 workers for concurrent requests)
-CMD ["sh", "-c", "cd /app && gunicorn backend.main:app --workers 4 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:${PORT}"]
+# Start the application with gunicorn + uvicorn workers (8 workers for 30+ concurrent users)
+CMD ["sh", "-c", "cd /app && gunicorn backend.main:app --workers 8 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:${PORT} --timeout 120"]
