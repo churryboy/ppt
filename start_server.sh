@@ -4,13 +4,14 @@ set -e
 echo "🔍 Checking Python version..."
 python3 --version
 
-echo "🔍 Checking pip3 version..."
-pip3 --version
+echo "🔍 Checking installed packages location..."
+python3 -c "import sys; print('Python path:', sys.path)"
 
-echo "📦 Verifying uvicorn installation..."
-pip3 show uvicorn || {
-    echo "❌ uvicorn not found, installing..."
-    pip3 install uvicorn
+echo "🔍 Looking for uvicorn..."
+python3 -c "import uvicorn; print('✅ uvicorn found:', uvicorn.__version__)" || {
+    echo "❌ uvicorn not found in Python path"
+    echo "📦 Attempting to install with --break-system-packages..."
+    pip3 install --break-system-packages uvicorn
 }
 
 echo "🚀 Starting server..."
