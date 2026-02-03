@@ -50,5 +50,8 @@ EXPOSE 8000
 ENV PYTHONPATH=/app/backend:$PYTHONPATH
 ENV PORT=8000
 
-# Start the application
-CMD ["sh", "-c", "cd /app && python3 -m uvicorn backend.main:app --host 0.0.0.0 --port ${PORT}"]
+# Install gunicorn for production server with multiple workers
+RUN pip install --no-cache-dir gunicorn
+
+# Start the application with gunicorn + uvicorn workers (4 workers for concurrent requests)
+CMD ["sh", "-c", "cd /app && gunicorn backend.main:app --workers 4 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:${PORT}"]
