@@ -1,5 +1,6 @@
 """Database models and setup for the PowerPoint search platform."""
 
+import os
 from datetime import datetime
 from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
@@ -132,9 +133,20 @@ class ArchivedSlide(Base):
         }
 
 
-# Database setup
-DATABASE_URL = "sqlite:///./ppt_search.db"
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+# Database setup - Use PostgreSQL if DATABASE_URL is set, otherwise SQLite
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./ppt_search.db")
+
+# PostgreSQL URL fix for Render (postgres:// -> postgresql://)
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+# Create engine with appropriate settings
+if DATABASE_URL.startswith("sqlite"):
+    engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+else:
+    # PostgreSQL settings for better concurrency
+    engine = create_engine(DATABASE_URL, pool_pre_ping=True, pool_size=10, max_overflow=20)
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
