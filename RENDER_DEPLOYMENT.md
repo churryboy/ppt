@@ -32,7 +32,7 @@ pip install -r requirements.txt && cd frontend && npm install && npm run build &
 
 - **Start Command**:
 ```bash
-uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+python -m uvicorn backend.main:app --host 0.0.0.0 --port $PORT
 ```
 
 **Environment Variables** (Add these):
@@ -75,7 +75,7 @@ pip install -r requirements.txt
 
 **Start Command:**
 ```bash
-uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+python -m uvicorn backend.main:app --host 0.0.0.0 --port $PORT
 ```
 
 **Environment Variables:**

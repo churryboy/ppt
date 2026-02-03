@@ -284,7 +284,7 @@ cat RENDER_DEPLOYMENT.md
 
 **Quick Deploy:**
 - **Build Command**: `pip install -r requirements.txt && cd frontend && npm install && npm run build && cd ..`
-- **Start Command**: `uvicorn backend.main:app --host 0.0.0.0 --port $PORT`
+- **Start Command**: `python -m uvicorn backend.main:app --host 0.0.0.0 --port $PORT`
 
 📖 **See [RENDER_DEPLOYMENT.md](RENDER_DEPLOYMENT.md) for complete instructions**
 
