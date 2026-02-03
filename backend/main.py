@@ -80,20 +80,8 @@ async def startup_event():
     print("✅ Database initialized")
 
 
-@app.get("/")
-async def root():
-    """Root endpoint."""
-    return {
-        "message": "PowerPoint Search Platform API",
-        "version": "1.0.0",
-        "endpoints": {
-            "register": "/api/auth/register",
-            "login": "/api/auth/login",
-            "upload": "/api/upload",
-            "presentations": "/api/presentations",
-            "search": "/api/search"
-        }
-    }
+# Root endpoint removed - frontend React app is served at / instead
+# API endpoints are available at /api/*
 
 
 @app.post("/api/auth/register")
