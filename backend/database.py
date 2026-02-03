@@ -152,7 +152,8 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def init_db():
     """Initialize the database."""
-    Base.metadata.create_all(bind=engine)
+    # Use checkfirst=True to avoid race conditions with multiple workers
+    Base.metadata.create_all(bind=engine, checkfirst=True)
 
 
 def get_db():
