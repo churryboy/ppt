@@ -14,8 +14,11 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
-from database import init_db, get_db, Presentation, Slide, User, ArchivedSlide
+from database import init_db, get_db, Presentation, Slide, User, ArchivedSlide, Quote, GeneratedQuote
 from ppt_parser import parse_pptx, get_presentation_info
+from quote_parser import parse_quote_file, generate_quote_from_requirements
+import json
+import io
 
 
 # Pydantic models for request/response
@@ -64,9 +67,11 @@ app.add_middleware(
 UPLOAD_DIR = Path("./uploads")
 SLIDES_DIR = Path("./slides")
 ARCHIVES_DIR = Path("./archives")
+QUOTES_DIR = Path("./quotes")
 UPLOAD_DIR.mkdir(exist_ok=True)
 SLIDES_DIR.mkdir(exist_ok=True)
 ARCHIVES_DIR.mkdir(exist_ok=True)
+QUOTES_DIR.mkdir(exist_ok=True)
 
 # Mount static files for serving slide images
 app.mount("/slides", StaticFiles(directory=str(SLIDES_DIR)), name="slides")

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import Login from './Login';
+import QuoteCalculator from './QuoteCalculator';
 import './App.css';
 
 // Use relative URLs for API calls (works both locally with proxy and in production)
@@ -18,6 +19,7 @@ function App() {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState({ fileName: '', percent: 0, processing: false });
   const [activeTab, setActiveTab] = useState('presentations'); // presentations, files, archives
+  const [activeMainMenu, setActiveMainMenu] = useState(null); // null, 'quote', 'attendee', 'moderator', 'analyzer', 'search'
   const [message, setMessage] = useState({ text: '', type: '' });
   const [sortBy, setSortBy] = useState('recent'); // recent, oldest, downloads
   const [expandedMenus, setExpandedMenus] = useState({ '시각화 검색기': true }); // Track expanded menu items
@@ -410,7 +412,13 @@ function App() {
           <nav className="sidebar-nav">
             {/* 견적 계산기 */}
             <div className="menu-item">
-              <button className="menu-header">
+              <button 
+                className={`menu-header ${activeMainMenu === 'quote' ? 'active' : ''}`}
+                onClick={() => {
+                  setActiveMainMenu(activeMainMenu === 'quote' ? null : 'quote');
+                  setActiveTab(null);
+                }}
+              >
                 <span className="nav-icon">💰</span>
                 <span className="nav-label">견적 계산기</span>
               </button>
@@ -505,6 +513,14 @@ function App() {
 
         <main className="main-content">
         <div className="content">
+          {/* 견적 계산기 뷰 */}
+          {activeMainMenu === 'quote' && (
+            <QuoteCalculator />
+          )}
+
+          {/* 기존 뷰들 (시각화 검색기 하위) */}
+          {activeMainMenu !== 'quote' && (
+            <>
           {/* Search Bar and Filters */}
           <div className="search-bar-container">
             <input
@@ -723,6 +739,8 @@ function App() {
             )}
           </div>
         )}
+            </>
+          )}
 
         </div>
       </main>

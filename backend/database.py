@@ -150,6 +150,41 @@ else:
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
+class Quote(Base):
+    """Model for storing uploaded quote files."""
+    
+    __tablename__ = "quotes"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    filename = Column(String, nullable=False)
+    original_filename = Column(String, nullable=False)
+    uploaded_at = Column(DateTime, default=datetime.utcnow)
+    items = Column(Text)  # JSON string of quote items
+    total_amount = Column(Integer)  # Total amount in KRW
+    
+    user = relationship("User", back_populates="quotes")
+
+
+class GeneratedQuote(Base):
+    """Model for storing generated quotes."""
+    
+    __tablename__ = "generated_quotes"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    requirements = Column(Text, nullable=False)
+    items = Column(Text)  # JSON string of quote items
+    total_amount = Column(Integer)  # Total amount in KRW
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    user = relationship("User")
+
+
+# Update User model to include quotes relationship
+User.quotes = relationship("Quote", back_populates="user")
+
+
 def init_db():
     """Initialize the database."""
     # Use checkfirst=True to avoid race conditions with multiple workers
