@@ -789,7 +789,7 @@ async def get_quote_history(
 @app.post("/api/quotes/{quote_id}/export")
 async def export_quote(
     quote_id: int,
-    format: str = Query("excel", regex="^(excel|csv)$"),
+    format: str = Query("excel", pattern="^(excel|csv)$"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
