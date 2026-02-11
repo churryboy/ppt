@@ -386,8 +386,6 @@ def generate_quote_from_requirements(requirements: str, historical_quotes: List[
                         print(f"      Generated names: {', '.join(generated_names)}")
         except Exception as pattern_error:
             print(f"   ⚠️  Pattern matching check failed (non-critical): {pattern_error}")
-            import traceback
-            traceback.print_exc()
         
         # Validate and format
         items = quote_data.get('items', [])
