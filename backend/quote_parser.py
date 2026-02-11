@@ -362,21 +362,25 @@ def generate_quote_from_requirements(requirements: str, historical_quotes: List[
         print(f"   Generated item names: {[item.get('name', '') for item in items]}")
         
         # Check if generated items match historical patterns
-        if historical_examples != "과거 견적서가 없습니다.":
-            all_historical_names = []
-            for quote in historical_quotes[:10]:
-                if quote.get('items'):
-                    hist_items = json.loads(quote['items']) if isinstance(quote['items'], str) else quote['items']
-                    for item in hist_items:
-                        all_historical_names.append(item.get('name', '').lower())
-            
-            generated_names = [item.get('name', '').lower() for item in items]
-            matches = sum(1 for name in generated_names if any(hist_name in name or name in hist_name for hist_name in all_historical_names))
-            print(f"   🔍 Pattern matching: {matches}/{len(items)} items match historical patterns")
-            if matches == 0:
-                print(f"   ⚠️  WARNING: Generated items don't match historical patterns!")
-                print(f"      Historical names: {', '.join(set(all_historical_names[:10]))}")
-                print(f"      Generated names: {', '.join(generated_names)}")
+        try:
+            if historical_examples != "과거 견적서가 없습니다." and historical_quotes:
+                all_historical_names = []
+                for quote in historical_quotes[:10]:
+                    if quote.get('items'):
+                        hist_items = json.loads(quote['items']) if isinstance(quote['items'], str) else quote['items']
+                        for item in hist_items:
+                            all_historical_names.append(item.get('name', '').lower())
+                
+                if all_historical_names:
+                    generated_names = [item.get('name', '').lower() for item in items]
+                    matches = sum(1 for name in generated_names if any(hist_name in name or name in hist_name for hist_name in all_historical_names))
+                    print(f"   🔍 Pattern matching: {matches}/{len(items)} items match historical patterns")
+                    if matches == 0:
+                        print(f"   ⚠️  WARNING: Generated items don't match historical patterns!")
+                        print(f"      Historical names: {', '.join(set(all_historical_names[:10]))}")
+                        print(f"      Generated names: {', '.join(generated_names)}")
+        except Exception as pattern_error:
+            print(f"   ⚠️  Pattern matching check failed (non-critical): {pattern_error}")
         
         # Validate and format
         items = quote_data.get('items', [])
