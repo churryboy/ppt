@@ -5,7 +5,8 @@ import QuoteCalculator from './QuoteCalculator';
 import './App.css';
 
 // Use relative URLs for API calls (works both locally with proxy and in production)
-const API_BASE_URL = '';
+// In development, proxy in package.json forwards to http://localhost:8000
+const API_BASE_URL = process.env.NODE_ENV === 'production' ? '' : '';
 
 function App() {
   const [presentations, setPresentations] = useState([]);

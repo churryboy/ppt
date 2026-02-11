@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './QuoteCalculator.css';
 
-// Use relative URLs for production, or localhost:8000 for local dev
-const API_BASE_URL = process.env.NODE_ENV === 'production' ? '' : 'http://localhost:8000';
+// Use relative URLs (proxy in package.json handles routing to backend)
+const API_BASE_URL = '';
 
 function QuoteCalculator({ sessionToken }) {
   const [requirements, setRequirements] = useState('');
