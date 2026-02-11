@@ -730,7 +730,9 @@ async def generate_quote(
     # Get historical quotes
     historical_quotes = db.query(Quote).filter(
         Quote.user_id == current_user.id
-    ).all()
+    ).order_by(Quote.uploaded_at.desc()).all()  # Most recent first
+    
+    print(f"📚 Found {len(historical_quotes)} historical quotes for user {current_user.id}")
     
     # Convert to dict format
     historical_data = []
@@ -739,6 +741,10 @@ async def generate_quote(
             'items': q.items,
             'total_amount': q.total_amount
         })
+        print(f"   Quote {q.id}: {q.original_filename}, {q.total_amount:,}원, {len(json.loads(q.items) if isinstance(q.items, str) else q.items)} items")
+    
+    if len(historical_data) == 0:
+        print("⚠️  No historical quotes found - LLM will generate from scratch")
     
     # Generate quote
     try:
