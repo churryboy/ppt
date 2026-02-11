@@ -181,10 +181,6 @@ class GeneratedQuote(Base):
     user = relationship("User")
 
 
-# Update User model to include quotes relationship
-User.quotes = relationship("Quote", back_populates="user")
-
-
 def init_db():
     """Initialize the database."""
     # Use checkfirst=True to avoid race conditions with multiple workers
