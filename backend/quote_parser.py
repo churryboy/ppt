@@ -9,18 +9,28 @@ from typing import List, Dict, Optional
 from dotenv import load_dotenv
 from anthropic import Anthropic
 
-# Load environment variables
-load_dotenv()
+# Load environment variables - explicitly specify path and override
+env_path = Path(__file__).parent.parent / ".env"
+load_dotenv(dotenv_path=env_path, override=True)
+print(f"📁 Loading .env from: {env_path}")
+print(f"   File exists: {env_path.exists()}")
 
 # Initialize Anthropic client
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+if ANTHROPIC_API_KEY:
+    # Strip whitespace
+    ANTHROPIC_API_KEY = ANTHROPIC_API_KEY.strip()
+
 anthropic_client = None
 
 if ANTHROPIC_API_KEY:
     # Validate API key format
+    print(f"🔑 Found API key: {ANTHROPIC_API_KEY[:15]}...{ANTHROPIC_API_KEY[-5:] if len(ANTHROPIC_API_KEY) > 20 else '***'}")
+    
     if not ANTHROPIC_API_KEY.startswith("sk-ant-"):
         print(f"⚠️  Warning: Anthropic API key format seems invalid (should start with 'sk-ant-')")
         print(f"   Key starts with: {ANTHROPIC_API_KEY[:10]}...")
+        print(f"   Key length: {len(ANTHROPIC_API_KEY)}")
     else:
         try:
             anthropic_client = Anthropic(api_key=ANTHROPIC_API_KEY)
@@ -29,6 +39,8 @@ if ANTHROPIC_API_KEY:
             print(f"❌ Failed to initialize Anthropic client: {e}")
 else:
     print("⚠️  ANTHROPIC_API_KEY not found in environment variables")
+    print(f"   .env file path checked: {env_path}")
+    print(f"   .env file exists: {env_path.exists()}")
     print("   LLM features will use fallback method")
     print("   To enable LLM: Create .env file with ANTHROPIC_API_KEY=sk-ant-your-key")
 
