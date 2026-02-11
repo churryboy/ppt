@@ -363,13 +363,18 @@ def generate_quote_from_requirements(requirements: str, historical_quotes: List[
         
         # Check if generated items match historical patterns
         try:
-            if historical_examples != "과거 견적서가 없습니다." and historical_quotes:
+            if historical_examples != "과거 견적서가 없습니다." and len(historical_context) > 0:
+                # Extract historical names from historical_context (already prepared above)
                 all_historical_names = []
-                for quote in historical_quotes[:10]:
-                    if quote.get('items'):
-                        hist_items = json.loads(quote['items']) if isinstance(quote['items'], str) else quote['items']
-                        for item in hist_items:
-                            all_historical_names.append(item.get('name', '').lower())
+                for context_str in historical_context:
+                    # Parse context string to extract item names
+                    lines = context_str.split('\n')
+                    for line in lines:
+                        if line.strip().startswith('-') and ':' in line:
+                            # Extract item name from line like "- 항목명: 단가..."
+                            item_name = line.split(':')[0].replace('-', '').strip()
+                            if item_name:
+                                all_historical_names.append(item_name.lower())
                 
                 if all_historical_names:
                     generated_names = [item.get('name', '').lower() for item in items]
@@ -381,6 +386,8 @@ def generate_quote_from_requirements(requirements: str, historical_quotes: List[
                         print(f"      Generated names: {', '.join(generated_names)}")
         except Exception as pattern_error:
             print(f"   ⚠️  Pattern matching check failed (non-critical): {pattern_error}")
+            import traceback
+            traceback.print_exc()
         
         # Validate and format
         items = quote_data.get('items', [])
