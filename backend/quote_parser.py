@@ -273,14 +273,35 @@ def generate_quote_from_requirements(requirements: str, historical_quotes: List[
 - JSON만 응답하고 다른 설명은 포함하지 마세요"""
 
         print("📤 Sending request to Anthropic Claude API...")
-        message = anthropic_client.messages.create(
-            model="claude-3-5-sonnet-20241022",
-            max_tokens=2000,
-            messages=[{
-                "role": "user",
-                "content": prompt
-            }]
-        )
+        # Try different model names - use the latest available
+        model_name = "claude-3-5-sonnet-20241022"
+        print(f"   Using model: {model_name}")
+        
+        try:
+            message = anthropic_client.messages.create(
+                model=model_name,
+                max_tokens=2000,
+                messages=[{
+                    "role": "user",
+                    "content": prompt
+                }]
+            )
+        except Exception as model_error:
+            # If model name fails, try alternative
+            if "model" in str(model_error).lower():
+                print(f"⚠️  Model {model_name} failed, trying alternative...")
+                model_name = "claude-3-5-sonnet-20240620"
+                print(f"   Trying model: {model_name}")
+                message = anthropic_client.messages.create(
+                    model=model_name,
+                    max_tokens=2000,
+                    messages=[{
+                        "role": "user",
+                        "content": prompt
+                    }]
+                )
+            else:
+                raise
         
         print("✅ Received response from Anthropic Claude API")
         
