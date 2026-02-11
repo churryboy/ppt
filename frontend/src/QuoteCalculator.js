@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './QuoteCalculator.css';
 
-const API_BASE_URL = '';
+// Use relative URLs for production, or localhost:8000 for local dev
+const API_BASE_URL = process.env.NODE_ENV === 'production' ? '' : 'http://localhost:8000';
 
 function QuoteCalculator() {
   const [requirements, setRequirements] = useState('');
@@ -46,25 +47,61 @@ function QuoteCalculator() {
     const files = event.target.files;
     if (!files || files.length === 0) return;
 
+    // Filter for valid quote files
+    const validFiles = Array.from(files).filter(file => 
+      file.name.endsWith('.xlsx') || file.name.endsWith('.xls') || file.name.endsWith('.csv')
+    );
+
+    if (validFiles.length === 0) {
+      showMessage('엑셀(.xlsx, .xls) 또는 CSV 파일만 업로드 가능합니다', 'error');
+      return;
+    }
+
+    if (validFiles.length < files.length) {
+      showMessage(`${files.length - validFiles.length}개 파일이 건너뛰어졌습니다 (지원하지 않는 형식)`, 'error');
+    }
+
     setUploading(true);
-    const formData = new FormData();
-    formData.append('file', files[0]);
+    let successCount = 0;
+    let failCount = 0;
 
-    try {
-      const response = await axios.post(`${API_BASE_URL}/api/quotes/upload`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+    // Upload files sequentially
+    for (let i = 0; i < validFiles.length; i++) {
+      const file = validFiles[i];
+      const formData = new FormData();
+      formData.append('file', file);
 
-      showMessage('견적서가 업로드되고 학습되었습니다', 'success');
+      try {
+        await axios.post(`${API_BASE_URL}/api/quotes/upload`, formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+
+        successCount++;
+        showMessage(`${file.name}: 업로드 및 학습 완료`, 'success');
+      } catch (error) {
+        console.error(`Error uploading quote ${file.name}:`, error);
+        failCount++;
+        showMessage(`${file.name}: 업로드 실패 - ${error.response?.data?.detail || error.message}`, 'error');
+      }
+
+      // Small delay between uploads
+      if (i < validFiles.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    }
+
+    setUploading(false);
+    event.target.value = '';
+
+    if (successCount > 0) {
+      showMessage(`✅ ${successCount}개 견적서가 성공적으로 업로드되었습니다`, 'success');
       loadUploadedQuotes();
-    } catch (error) {
-      console.error('Error uploading quote:', error);
-      showMessage('견적서 업로드 실패', 'error');
-    } finally {
-      setUploading(false);
-      event.target.value = '';
+    }
+
+    if (failCount > 0) {
+      showMessage(`❌ ${failCount}개 견적서 업로드 실패`, 'error');
     }
   };
 
@@ -168,6 +205,7 @@ function QuoteCalculator() {
               accept=".xlsx,.xls,.csv"
               onChange={handleQuoteUpload}
               disabled={uploading}
+              multiple
               style={{ display: 'none' }}
             />
             <button
@@ -175,7 +213,7 @@ function QuoteCalculator() {
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
             >
-              {uploading ? '업로드 중...' : '📁 견적서 선택'}
+              {uploading ? '업로드 중...' : '📁 견적서 선택 (여러 개 가능)'}
             </button>
 
             {uploadedQuotes.length > 0 && (
