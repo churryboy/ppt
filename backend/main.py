@@ -622,6 +622,221 @@ async def delete_archived_slide(
     }
 
 
+# ==================== Quote Calculator API ====================
+
+class QuoteGenerateRequest(BaseModel):
+    requirements: str
+
+
+@app.post("/api/quotes/upload")
+async def upload_quote(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Upload a quote file (Excel or CSV) for learning."""
+    # Validate file type
+    if not file.filename.endswith(('.xlsx', '.xls', '.csv')):
+        raise HTTPException(
+            status_code=400,
+            detail="Only .xlsx, .xls, and .csv files are supported"
+        )
+    
+    # Save uploaded file
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    safe_filename = f"{timestamp}_{file.filename}"
+    file_path = QUOTES_DIR / safe_filename
+    
+    try:
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
+    
+    # Parse quote file
+    try:
+        quote_data = parse_quote_file(str(file_path))
+        
+        # Save to database
+        quote = Quote(
+            user_id=current_user.id,
+            filename=safe_filename,
+            original_filename=file.filename,
+            items=json.dumps(quote_data['items'], ensure_ascii=False),
+            total_amount=quote_data['total_amount']
+        )
+        db.add(quote)
+        db.commit()
+        db.refresh(quote)
+        
+        return {
+            "success": True,
+            "quote_id": quote.id,
+            "filename": file.filename,
+            "item_count": quote_data['item_count'],
+            "total_amount": quote_data['total_amount'],
+            "message": f"Quote uploaded and learned successfully"
+        }
+    except Exception as e:
+        if file_path.exists():
+            file_path.unlink()
+        raise HTTPException(status_code=500, detail=f"Failed to parse quote: {str(e)}")
+
+
+@app.get("/api/quotes/uploaded")
+async def get_uploaded_quotes(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get all uploaded quotes for the current user."""
+    quotes = db.query(Quote).filter(
+        Quote.user_id == current_user.id
+    ).order_by(Quote.uploaded_at.desc()).all()
+    
+    return {
+        "quotes": [{
+            "id": q.id,
+            "filename": q.original_filename,
+            "uploaded_at": q.uploaded_at.isoformat(),
+            "total_amount": q.total_amount
+        } for q in quotes]
+    }
+
+
+@app.post("/api/quotes/generate")
+async def generate_quote(
+    request: QuoteGenerateRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Generate a new quote based on requirements."""
+    # Get historical quotes
+    historical_quotes = db.query(Quote).filter(
+        Quote.user_id == current_user.id
+    ).all()
+    
+    # Convert to dict format
+    historical_data = []
+    for q in historical_quotes:
+        historical_data.append({
+            'items': q.items,
+            'total_amount': q.total_amount
+        })
+    
+    # Generate quote
+    try:
+        generated_data = generate_quote_from_requirements(
+            request.requirements,
+            historical_data
+        )
+        
+        # Save generated quote
+        generated_quote = GeneratedQuote(
+            user_id=current_user.id,
+            requirements=request.requirements,
+            items=json.dumps(generated_data['items'], ensure_ascii=False),
+            total_amount=generated_data['total_amount']
+        )
+        db.add(generated_quote)
+        db.commit()
+        db.refresh(generated_quote)
+        
+        return {
+            "success": True,
+            "quote": {
+                "id": generated_quote.id,
+                "requirements": generated_quote.requirements,
+                "items": generated_data['items'],
+                "total_amount": generated_data['total_amount'],
+                "created_at": generated_quote.created_at.isoformat()
+            }
+        }
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Failed to generate quote: {str(e)}")
+
+
+@app.get("/api/quotes/history")
+async def get_quote_history(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get quote generation history."""
+    quotes = db.query(GeneratedQuote).filter(
+        GeneratedQuote.user_id == current_user.id
+    ).order_by(GeneratedQuote.created_at.desc()).limit(20).all()
+    
+    return {
+        "quotes": [{
+            "id": q.id,
+            "requirements": q.requirements[:100] + "..." if len(q.requirements) > 100 else q.requirements,
+            "total_amount": q.total_amount,
+            "created_at": q.created_at.isoformat()
+        } for q in quotes]
+    }
+
+
+@app.post("/api/quotes/{quote_id}/export")
+async def export_quote(
+    quote_id: int,
+    format: str = Query("excel", regex="^(excel|csv)$"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Export quote as Excel or CSV."""
+    quote = db.query(GeneratedQuote).filter(
+        GeneratedQuote.id == quote_id,
+        GeneratedQuote.user_id == current_user.id
+    ).first()
+    
+    if not quote:
+        raise HTTPException(status_code=404, detail="Quote not found")
+    
+    # Parse items
+    items = json.loads(quote.items) if isinstance(quote.items, str) else quote.items
+    
+    if format == "excel":
+        import pandas as pd
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, Alignment
+        
+        # Create DataFrame
+        df = pd.DataFrame(items)
+        df.columns = ['항목', '단가', '수량', '금액']
+        
+        # Create Excel file in memory
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name='견적서')
+        
+        output.seek(0)
+        
+        from fastapi.responses import Response
+        return Response(
+            content=output.read(),
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename=quote_{quote_id}.xlsx"}
+        )
+    
+    else:  # CSV
+        import csv
+        import pandas as pd
+        
+        df = pd.DataFrame(items)
+        df.columns = ['항목', '단가', '수량', '금액']
+        
+        output = io.StringIO()
+        df.to_csv(output, index=False, encoding='utf-8-sig')
+        output.seek(0)
+        
+        from fastapi.responses import Response
+        return Response(
+            content=output.getvalue().encode('utf-8-sig'),
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename=quote_{quote_id}.csv"}
+        )
+
+
 # Serve React frontend in production (after all API routes are defined)
 FRONTEND_BUILD = Path(__file__).parent.parent / "frontend" / "build"
 if FRONTEND_BUILD.exists():
