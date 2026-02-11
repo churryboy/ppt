@@ -20,6 +20,7 @@ function App() {
   const [activeTab, setActiveTab] = useState('presentations'); // presentations, files, archives
   const [message, setMessage] = useState({ text: '', type: '' });
   const [sortBy, setSortBy] = useState('recent'); // recent, oldest, downloads
+  const [expandedMenus, setExpandedMenus] = useState({ '시각화 검색기': true }); // Track expanded menu items
   const fileInputRef = useRef(null);
 
   // Configure axios to include auth token
@@ -407,40 +408,87 @@ function App() {
         {/* Left Sidebar */}
         <aside className="sidebar">
           <nav className="sidebar-nav">
-            <button 
-              className="nav-button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-            >
-              <span className="nav-icon">📤</span>
-              <span className="nav-label">Upload</span>
-            </button>
-            
-            <button 
-              className={`nav-button ${activeTab === 'presentations' ? 'active' : ''}`}
-              onClick={() => setActiveTab('presentations')}
-            >
-              <span className="nav-icon">🎞️</span>
-              <span className="nav-label">All Slides</span>
-            </button>
+            {/* 견적 계산기 */}
+            <div className="menu-item">
+              <button className="menu-header">
+                <span className="nav-icon">💰</span>
+                <span className="nav-label">견적 계산기</span>
+              </button>
+            </div>
 
-            <button 
-              className={`nav-button ${activeTab === 'files' ? 'active' : ''}`}
-              onClick={() => setActiveTab('files')}
-            >
-              <span className="nav-icon">📁</span>
-              <span className="nav-label">Files</span>
-              <span className="nav-count">{presentations.length}</span>
-            </button>
+            {/* 참석자 선별기 */}
+            <div className="menu-item">
+              <button className="menu-header">
+                <span className="nav-icon">👥</span>
+                <span className="nav-label">참석자 선별기</span>
+              </button>
+            </div>
 
-            <button 
-              className={`nav-button ${activeTab === 'archives' ? 'active' : ''}`}
-              onClick={() => setActiveTab('archives')}
-            >
-              <span className="nav-icon">📌</span>
-              <span className="nav-label">Archives</span>
-              <span className="nav-count">{archivedSlides.length}</span>
-            </button>
+            {/* AI 모더레이터 */}
+            <div className="menu-item">
+              <button className="menu-header">
+                <span className="nav-icon">🤖</span>
+                <span className="nav-label">AI 모더레이터</span>
+              </button>
+            </div>
+
+            {/* 결과 분석기 */}
+            <div className="menu-item">
+              <button className="menu-header">
+                <span className="nav-icon">📊</span>
+                <span className="nav-label">결과 분석기</span>
+              </button>
+            </div>
+
+            {/* 시각화 검색기 - Expandable */}
+            <div className="menu-item">
+              <button 
+                className="menu-header"
+                onClick={() => setExpandedMenus(prev => ({ ...prev, '시각화 검색기': !prev['시각화 검색기'] }))}
+              >
+                <span className="nav-icon">🔍</span>
+                <span className="nav-label">시각화 검색기</span>
+                <span className="expand-icon">{expandedMenus['시각화 검색기'] ? '▼' : '▶'}</span>
+              </button>
+              {expandedMenus['시각화 검색기'] && (
+                <div className="submenu">
+                  <button 
+                    className="submenu-button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                  >
+                    <span className="nav-icon">📤</span>
+                    <span className="nav-label">Upload</span>
+                  </button>
+                  
+                  <button 
+                    className={`submenu-button ${activeTab === 'presentations' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('presentations')}
+                  >
+                    <span className="nav-icon">🎞️</span>
+                    <span className="nav-label">All Slides</span>
+                  </button>
+
+                  <button 
+                    className={`submenu-button ${activeTab === 'files' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('files')}
+                  >
+                    <span className="nav-icon">📁</span>
+                    <span className="nav-label">Files</span>
+                    <span className="nav-count">{presentations.length}</span>
+                  </button>
+
+                  <button 
+                    className={`submenu-button ${activeTab === 'archives' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('archives')}
+                  >
+                    <span className="nav-icon">📌</span>
+                    <span className="nav-label">Archives</span>
+                    <span className="nav-count">{archivedSlides.length}</span>
+                  </button>
+                </div>
+              )}
+            </div>
           </nav>
         </aside>
 
