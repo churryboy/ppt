@@ -5,7 +5,7 @@ import './QuoteCalculator.css';
 // Use relative URLs for production, or localhost:8000 for local dev
 const API_BASE_URL = process.env.NODE_ENV === 'production' ? '' : 'http://localhost:8000';
 
-function QuoteCalculator() {
+function QuoteCalculator({ sessionToken }) {
   const [requirements, setRequirements] = useState('');
   const [quoteHistory, setQuoteHistory] = useState([]);
   const [uploadedQuotes, setUploadedQuotes] = useState([]);
@@ -22,7 +22,9 @@ function QuoteCalculator() {
 
   const loadUploadedQuotes = async () => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/api/quotes/uploaded`);
+      const response = await axios.get(`${API_BASE_URL}/api/quotes/uploaded`, {
+        headers: sessionToken ? { 'Authorization': sessionToken } : {}
+      });
       setUploadedQuotes(response.data.quotes || []);
     } catch (error) {
       console.error('Error loading uploaded quotes:', error);
@@ -31,7 +33,9 @@ function QuoteCalculator() {
 
   const loadQuoteHistory = async () => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/api/quotes/history`);
+      const response = await axios.get(`${API_BASE_URL}/api/quotes/history`, {
+        headers: sessionToken ? { 'Authorization': sessionToken } : {}
+      });
       setQuoteHistory(response.data.quotes || []);
     } catch (error) {
       console.error('Error loading quote history:', error);
@@ -115,6 +119,8 @@ function QuoteCalculator() {
     try {
       const response = await axios.post(`${API_BASE_URL}/api/quotes/generate`, {
         requirements: requirements,
+      }, {
+        headers: sessionToken ? { 'Authorization': sessionToken } : {}
       });
 
       setGeneratedQuote(response.data.quote);
@@ -135,7 +141,10 @@ function QuoteCalculator() {
       const response = await axios.post(
         `${API_BASE_URL}/api/quotes/${generatedQuote.id}/export`,
         { format: 'excel' },
-        { responseType: 'blob' }
+        { 
+          responseType: 'blob',
+          headers: sessionToken ? { 'Authorization': sessionToken } : {}
+        }
       );
 
       const url = window.URL.createObjectURL(new Blob([response.data]));
@@ -160,7 +169,10 @@ function QuoteCalculator() {
       const response = await axios.post(
         `${API_BASE_URL}/api/quotes/${generatedQuote.id}/export`,
         { format: 'csv' },
-        { responseType: 'blob' }
+        { 
+          responseType: 'blob',
+          headers: sessionToken ? { 'Authorization': sessionToken } : {}
+        }
       );
 
       const url = window.URL.createObjectURL(new Blob([response.data]));

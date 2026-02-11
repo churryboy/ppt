@@ -515,7 +515,7 @@ function App() {
         <div className="content">
           {/* 견적 계산기 뷰 */}
           {activeMainMenu === 'quote' && (
-            <QuoteCalculator />
+            <QuoteCalculator sessionToken={sessionToken} />
           )}
 
           {/* 기존 뷰들 (시각화 검색기 하위) */}
