@@ -97,29 +97,36 @@ app.mount("/archives", StaticFiles(directory=str(ARCHIVES_DIR)), name="archives"
 @app.post("/api/auth/register")
 async def register(user_data: UserRegister, db: Session = Depends(get_db)):
     """Register a new user."""
-    # Check if username already exists
-    existing_user = db.query(User).filter(User.username == user_data.username).first()
-    if existing_user:
-        raise HTTPException(status_code=400, detail="Username already exists")
-    
-    # Create new user
-    user = User(username=user_data.username)
-    user.set_password(user_data.password)
-    
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    
-    # Create session
-    import secrets
-    session_token = secrets.token_urlsafe(32)
-    sessions[session_token] = user.id
-    
-    return {
-        "success": True,
-        "user": user.to_dict(),
-        "session_token": session_token
-    }
+    try:
+        # Check if username already exists
+        existing_user = db.query(User).filter(User.username == user_data.username).first()
+        if existing_user:
+            raise HTTPException(status_code=400, detail="Username already exists")
+        
+        # Create new user
+        user = User(username=user_data.username)
+        user.set_password(user_data.password)
+        
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        
+        # Create session
+        import secrets
+        session_token = secrets.token_urlsafe(32)
+        sessions[session_token] = user.id
+        
+        return {
+            "success": True,
+            "user": user.to_dict(),
+            "session_token": session_token
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error in register: {e}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Registration failed: {str(e)}")
 
 
 @app.post("/api/auth/login")

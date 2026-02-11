@@ -20,8 +20,9 @@ class User(Base):
     password_hash = Column(String, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     
-    # Relationship to presentations
+    # Relationships
     presentations = relationship("Presentation", back_populates="user", cascade="all, delete-orphan")
+    quotes = relationship("Quote", back_populates="user", cascade="all, delete-orphan")
     
     def set_password(self, password):
         """Hash and set password."""
