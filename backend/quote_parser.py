@@ -15,8 +15,22 @@ load_dotenv()
 # Initialize Anthropic client
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 anthropic_client = None
+
 if ANTHROPIC_API_KEY:
-    anthropic_client = Anthropic(api_key=ANTHROPIC_API_KEY)
+    # Validate API key format
+    if not ANTHROPIC_API_KEY.startswith("sk-ant-"):
+        print(f"⚠️  Warning: Anthropic API key format seems invalid (should start with 'sk-ant-')")
+        print(f"   Key starts with: {ANTHROPIC_API_KEY[:10]}...")
+    else:
+        try:
+            anthropic_client = Anthropic(api_key=ANTHROPIC_API_KEY)
+            print("✅ Anthropic client initialized successfully")
+        except Exception as e:
+            print(f"❌ Failed to initialize Anthropic client: {e}")
+else:
+    print("⚠️  ANTHROPIC_API_KEY not found in environment variables")
+    print("   LLM features will use fallback method")
+    print("   To enable LLM: Create .env file with ANTHROPIC_API_KEY=sk-ant-your-key")
 
 
 def parse_quote_file(file_path: str) -> Dict:
@@ -298,8 +312,15 @@ def generate_quote_from_requirements(requirements: str, historical_quotes: List[
         # Fallback to simple generation
         return _generate_quote_simple(requirements, historical_quotes)
     except Exception as e:
-        print(f"❌ Error in LLM quote generation: {e}")
-        print(f"   Error type: {type(e).__name__}")
+        error_type = type(e).__name__
+        print(f"❌ Error in LLM quote generation: {error_type}: {e}")
+        
+        # Check for authentication errors
+        if "AuthenticationError" in error_type or "401" in str(e) or "invalid" in str(e).lower():
+            print("🔑 API Key authentication failed!")
+            print("   Please check your ANTHROPIC_API_KEY in .env file")
+            print("   Key should start with 'sk-ant-' and be valid")
+        
         traceback.print_exc()
         print("⚠️  Falling back to simple generation method")
         # Fallback to simple generation
