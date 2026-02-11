@@ -16,9 +16,11 @@ function QuoteCalculator({ sessionToken }) {
   const fileInputRef = React.useRef(null);
 
   useEffect(() => {
-    loadUploadedQuotes();
-    loadQuoteHistory();
-  }, []);
+    if (sessionToken) {
+      loadUploadedQuotes();
+      loadQuoteHistory();
+    }
+  }, [sessionToken]);
 
   const loadUploadedQuotes = async () => {
     try {
