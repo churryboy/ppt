@@ -112,25 +112,43 @@ function QuoteCalculator({ sessionToken }) {
   };
 
   const handleGenerateQuote = async () => {
+    console.log('🔍 handleGenerateQuote called');
+    console.log('   Requirements:', requirements);
+    console.log('   Session token:', sessionToken ? 'Present' : 'Missing');
+    console.log('   API_BASE_URL:', API_BASE_URL);
+    
     if (!requirements.trim()) {
+      console.log('⚠️ Requirements empty, showing error message');
       showMessage('요구사항을 입력해주세요', 'error');
       return;
     }
 
+    console.log('✅ Starting quote generation...');
     setLoading(true);
     try {
-      const response = await axios.post(`${API_BASE_URL}/api/quotes/generate`, {
-        requirements: requirements,
-      }, {
-        headers: sessionToken ? { 'Authorization': sessionToken } : {}
+      const requestUrl = `${API_BASE_URL}/api/quotes/generate`;
+      const requestData = { requirements: requirements };
+      const requestHeaders = sessionToken ? { 'Authorization': sessionToken } : {};
+      
+      console.log('📤 Sending POST request:', {
+        url: requestUrl,
+        data: requestData,
+        headers: requestHeaders
+      });
+      
+      const response = await axios.post(requestUrl, requestData, {
+        headers: requestHeaders
       });
 
+      console.log('✅ Response received:', response.data);
       setGeneratedQuote(response.data.quote);
       showMessage('견적이 생성되었습니다', 'success');
       loadQuoteHistory();
     } catch (error) {
-      console.error('Error generating quote:', error);
-      showMessage('견적 생성 실패', 'error');
+      console.error('❌ Error generating quote:', error);
+      console.error('   Error response:', error.response?.data);
+      console.error('   Error status:', error.response?.status);
+      showMessage(`견적 생성 실패: ${error.response?.data?.detail || error.message}`, 'error');
     } finally {
       setLoading(false);
     }
