@@ -51,18 +51,6 @@ def get_current_user(authorization: str = Header(None), db: Session = Depends(ge
     
     return user
 
-# Initialize FastAPI app
-app = FastAPI(title="PowerPoint Search Platform", version="1.0.0")
-
-# Configure CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # In production, specify exact origins
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 # Create necessary directories
 UPLOAD_DIR = Path("./uploads")
 SLIDES_DIR = Path("./slides")
@@ -73,16 +61,33 @@ SLIDES_DIR.mkdir(exist_ok=True)
 ARCHIVES_DIR.mkdir(exist_ok=True)
 QUOTES_DIR.mkdir(exist_ok=True)
 
+# Lifespan context manager for startup/shutdown
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan context manager for startup and shutdown events."""
+    # Startup
+    init_db()
+    print("✅ Database initialized")
+    yield
+    # Shutdown (if needed)
+
+# Initialize FastAPI app
+app = FastAPI(title="PowerPoint Search Platform", version="1.0.0", lifespan=lifespan)
+
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, specify exact origins
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # Mount static files for serving slide images
 app.mount("/slides", StaticFiles(directory=str(SLIDES_DIR)), name="slides")
 app.mount("/archives", StaticFiles(directory=str(ARCHIVES_DIR)), name="archives")
-
-
-@app.on_event("startup")
-async def startup_event():
-    """Initialize database on startup."""
-    init_db()
-    print("✅ Database initialized")
 
 
 # Root endpoint removed - frontend React app is served at / instead
