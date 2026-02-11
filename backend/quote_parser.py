@@ -273,24 +273,14 @@ def generate_quote_from_requirements(requirements: str, historical_quotes: List[
 - JSON만 응답하고 다른 설명은 포함하지 마세요"""
 
         print("📤 Sending request to Anthropic Claude API...")
-        # Try different model names - use the latest available
-        model_name = "claude-3-5-sonnet-20241022"
-        print(f"   Using model: {model_name}")
+        # Use a more stable model name that's widely available
+        # Try claude-3-5-sonnet-20240620 first (more stable), then fallback to 20241022
+        model_names = ["claude-3-5-sonnet-20240620", "claude-3-5-sonnet-20241022"]
+        message = None
+        last_error = None
         
-        try:
-            message = anthropic_client.messages.create(
-                model=model_name,
-                max_tokens=2000,
-                messages=[{
-                    "role": "user",
-                    "content": prompt
-                }]
-            )
-        except Exception as model_error:
-            # If model name fails, try alternative
-            if "model" in str(model_error).lower():
-                print(f"⚠️  Model {model_name} failed, trying alternative...")
-                model_name = "claude-3-5-sonnet-20240620"
+        for model_name in model_names:
+            try:
                 print(f"   Trying model: {model_name}")
                 message = anthropic_client.messages.create(
                     model=model_name,
@@ -300,8 +290,18 @@ def generate_quote_from_requirements(requirements: str, historical_quotes: List[
                         "content": prompt
                     }]
                 )
-            else:
-                raise
+                print(f"✅ Successfully connected with model: {model_name}")
+                break
+            except Exception as model_error:
+                last_error = model_error
+                error_str = str(model_error)
+                print(f"⚠️  Model {model_name} failed: {error_str[:100]}")
+                if model_name != model_names[-1]:
+                    print(f"   Trying next model...")
+                continue
+        
+        if message is None:
+            raise Exception(f"All models failed. Last error: {last_error}")
         
         print("✅ Received response from Anthropic Claude API")
         
