@@ -11,5 +11,5 @@ fi
 
 # Run the backend
 cd "$(dirname "$0")"
-python backend/main.py
+python3 backend/main.py
 
