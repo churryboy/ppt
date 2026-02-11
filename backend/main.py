@@ -16,7 +16,7 @@ from pydantic import BaseModel
 
 from database import init_db, get_db, Presentation, Slide, User, ArchivedSlide, Quote, GeneratedQuote
 from ppt_parser import parse_pptx, get_presentation_info
-from quote_parser import parse_quote_file, generate_quote_from_requirements
+from quote_parser import parse_quote_file, generate_quote_from_requirements, learn_quote_with_llm
 import json
 import io
 
@@ -657,6 +657,10 @@ async def upload_quote(
     try:
         quote_data = parse_quote_file(str(file_path))
         
+        # Learn from quote using LLM
+        learning_summary = learn_quote_with_llm(quote_data)
+        print(f"LLM Learning Summary: {learning_summary}")
+        
         # Save to database
         quote = Quote(
             user_id=current_user.id,
@@ -675,7 +679,8 @@ async def upload_quote(
             "filename": file.filename,
             "item_count": quote_data['item_count'],
             "total_amount": quote_data['total_amount'],
-            "message": f"Quote uploaded and learned successfully"
+            "message": f"Quote uploaded and learned successfully",
+            "learning_summary": learning_summary if learning_summary else None
         }
     except Exception as e:
         if file_path.exists():

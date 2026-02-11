@@ -1,9 +1,22 @@
-"""Quote file parser for Excel and CSV files."""
+"""Quote file parser for Excel and CSV files with LLM learning."""
 
 import pandas as pd
 import json
+import os
+import traceback
 from pathlib import Path
 from typing import List, Dict, Optional
+from dotenv import load_dotenv
+from anthropic import Anthropic
+
+# Load environment variables
+load_dotenv()
+
+# Initialize Anthropic client
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+anthropic_client = None
+if ANTHROPIC_API_KEY:
+    anthropic_client = Anthropic(api_key=ANTHROPIC_API_KEY)
 
 
 def parse_quote_file(file_path: str) -> Dict:
