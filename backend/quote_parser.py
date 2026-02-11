@@ -193,9 +193,18 @@ def generate_quote_from_requirements(requirements: str, historical_quotes: List[
     Returns:
         Dictionary with generated quote items and total amount
     """
+    print(f"🔍 Generating quote with LLM...")
+    print(f"   Requirements: {requirements[:100]}...")
+    print(f"   Historical quotes count: {len(historical_quotes)}")
+    print(f"   Anthropic client available: {anthropic_client is not None}")
+    print(f"   API Key set: {ANTHROPIC_API_KEY is not None and ANTHROPIC_API_KEY != ''}")
+    
     if not anthropic_client:
+        print("⚠️  Anthropic client not available, using fallback method")
         # Fallback to simple pattern matching if LLM not available
         return _generate_quote_simple(requirements, historical_quotes)
+    
+    print("✅ Using Anthropic Claude API for quote generation...")
     
     try:
         # Prepare historical data for LLM
@@ -237,6 +246,7 @@ def generate_quote_from_requirements(requirements: str, historical_quotes: List[
 - 과거 견적서의 가격 패턴을 참고하여 현실적인 가격을 제시해주세요
 - JSON만 응답하고 다른 설명은 포함하지 마세요"""
 
+        print("📤 Sending request to Anthropic Claude API...")
         message = anthropic_client.messages.create(
             model="claude-3-5-sonnet-20241022",
             max_tokens=2000,
@@ -246,8 +256,11 @@ def generate_quote_from_requirements(requirements: str, historical_quotes: List[
             }]
         )
         
+        print("✅ Received response from Anthropic Claude API")
+        
         # Parse LLM response
         response_text = message.content[0].text.strip()
+        print(f"📝 LLM Response (first 200 chars): {response_text[:200]}...")
         
         # Extract JSON from response (handle markdown code blocks)
         if "```json" in response_text:
@@ -255,8 +268,11 @@ def generate_quote_from_requirements(requirements: str, historical_quotes: List[
         elif "```" in response_text:
             response_text = response_text.split("```")[1].split("```")[0].strip()
         
+        print(f"📋 Extracted JSON: {response_text[:200]}...")
+        
         # Parse JSON
         quote_data = json.loads(response_text)
+        print(f"✅ Successfully parsed LLM response: {len(quote_data.get('items', []))} items, total: {quote_data.get('total_amount', 0):,}원")
         
         # Validate and format
         items = quote_data.get('items', [])
@@ -276,13 +292,16 @@ def generate_quote_from_requirements(requirements: str, historical_quotes: List[
         }
         
     except json.JSONDecodeError as e:
-        print(f"JSON parsing error: {e}")
-        print(f"Response was: {response_text}")
+        print(f"❌ JSON parsing error: {e}")
+        print(f"   Full response was: {response_text}")
+        print("⚠️  Falling back to simple generation method")
         # Fallback to simple generation
         return _generate_quote_simple(requirements, historical_quotes)
     except Exception as e:
-        print(f"Error in LLM quote generation: {e}")
+        print(f"❌ Error in LLM quote generation: {e}")
+        print(f"   Error type: {type(e).__name__}")
         traceback.print_exc()
+        print("⚠️  Falling back to simple generation method")
         # Fallback to simple generation
         return _generate_quote_simple(requirements, historical_quotes)
 
@@ -291,6 +310,7 @@ def _generate_quote_simple(requirements: str, historical_quotes: List[Dict]) -> 
     """
     Simple fallback quote generation without LLM.
     """
+    print("📝 Using simple pattern matching (fallback method)")
     import re
     requirements_lower = requirements.lower()
     
