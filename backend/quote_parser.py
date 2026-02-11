@@ -134,11 +134,57 @@ def parse_quote_file(file_path: str) -> Dict:
         raise ValueError(f"Failed to parse quote file: {str(e)}")
 
 
+def learn_quote_with_llm(quote_data: Dict) -> str:
+    """
+    Learn from a quote using LLM to extract patterns and insights.
+    
+    Args:
+        quote_data: Dictionary with quote items and total amount
+        
+    Returns:
+        Learning summary as string
+    """
+    if not anthropic_client:
+        return "LLM not configured (ANTHROPIC_API_KEY not set)"
+    
+    try:
+        items = quote_data.get('items', [])
+        total_amount = quote_data.get('total_amount', 0)
+        
+        # Format items for LLM
+        items_text = "\n".join([
+            f"- {item.get('name', '')}: 단가 {item.get('unit_price', 0):,}원 × {item.get('quantity', 1)} = {item.get('amount', 0):,}원"
+            for item in items
+        ])
+        
+        prompt = f"""다음은 업로드된 견적서입니다. 이 견적서의 패턴과 특징을 분석하여 학습하세요.
+
+총 예산: {total_amount:,}원
+
+항목별 상세:
+{items_text}
+
+이 견적서에서 학습할 수 있는 주요 패턴, 항목별 가격 범위, 그리고 향후 견적 생성에 활용할 수 있는 인사이트를 요약해주세요.
+한국어로 간결하게 작성해주세요."""
+
+        message = anthropic_client.messages.create(
+            model="claude-3-5-sonnet-20241022",
+            max_tokens=1000,
+            messages=[{
+                "role": "user",
+                "content": prompt
+            }]
+        )
+        
+        return message.content[0].text
+    except Exception as e:
+        print(f"Error in LLM learning: {e}")
+        return f"LLM 학습 중 오류 발생: {str(e)}"
+
+
 def generate_quote_from_requirements(requirements: str, historical_quotes: List[Dict]) -> Dict:
     """
-    Generate a new quote based on requirements and historical quotes.
-    
-    This is a simple pattern-matching approach. In production, you'd use ML/AI.
+    Generate a new quote based on requirements and historical quotes using LLM.
     
     Args:
         requirements: Text description of requirements
@@ -147,97 +193,158 @@ def generate_quote_from_requirements(requirements: str, historical_quotes: List[
     Returns:
         Dictionary with generated quote items and total amount
     """
-    # Extract keywords from requirements
+    if not anthropic_client:
+        # Fallback to simple pattern matching if LLM not available
+        return _generate_quote_simple(requirements, historical_quotes)
+    
+    try:
+        # Prepare historical data for LLM
+        historical_context = []
+        for quote in historical_quotes[:10]:  # Limit to 10 most recent
+            if quote.get('items'):
+                items = json.loads(quote['items']) if isinstance(quote['items'], str) else quote['items']
+                items_text = "\n".join([
+                    f"- {item.get('name', '')}: {item.get('unit_price', 0):,}원 × {item.get('quantity', 1)} = {item.get('amount', 0):,}원"
+                    for item in items
+                ])
+                historical_context.append(f"총액: {quote.get('total_amount', 0):,}원\n{items_text}")
+        
+        historical_examples = "\n\n---\n\n".join(historical_context) if historical_context else "과거 견적서가 없습니다."
+        
+        prompt = f"""당신은 견적서 생성 전문가입니다. 사용자의 요구사항을 바탕으로 과거 견적서 패턴을 학습하여 새로운 견적을 생성해주세요.
+
+요구사항:
+{requirements}
+
+과거 견적서 예시 (학습 참고용):
+{historical_examples}
+
+위의 과거 견적서 패턴을 참고하여, 요구사항에 맞는 견적서를 생성해주세요.
+
+응답 형식은 반드시 다음 JSON 형식으로 해주세요:
+{{
+  "items": [
+    {{"name": "항목명", "unit_price": 단가(숫자), "quantity": 수량(숫자), "amount": 금액(숫자)}},
+    ...
+  ],
+  "total_amount": 총액(숫자)
+}}
+
+중요:
+- 모든 금액은 원화(KRW) 기준입니다
+- 단가는 정수로, 금액도 정수로 표시해주세요
+- 수량도 정수로 표시해주세요
+- 과거 견적서의 가격 패턴을 참고하여 현실적인 가격을 제시해주세요
+- JSON만 응답하고 다른 설명은 포함하지 마세요"""
+
+        message = anthropic_client.messages.create(
+            model="claude-3-5-sonnet-20241022",
+            max_tokens=2000,
+            messages=[{
+                "role": "user",
+                "content": prompt
+            }]
+        )
+        
+        # Parse LLM response
+        response_text = message.content[0].text.strip()
+        
+        # Extract JSON from response (handle markdown code blocks)
+        if "```json" in response_text:
+            response_text = response_text.split("```json")[1].split("```")[0].strip()
+        elif "```" in response_text:
+            response_text = response_text.split("```")[1].split("```")[0].strip()
+        
+        # Parse JSON
+        quote_data = json.loads(response_text)
+        
+        # Validate and format
+        items = quote_data.get('items', [])
+        total_amount = quote_data.get('total_amount', 0)
+        
+        # Ensure all amounts are integers
+        for item in items:
+            item['unit_price'] = int(item.get('unit_price', 0))
+            item['quantity'] = int(item.get('quantity', 1))
+            item['amount'] = int(item.get('amount', item['unit_price'] * item['quantity']))
+        
+        total_amount = int(total_amount)
+        
+        return {
+            'items': items,
+            'total_amount': total_amount
+        }
+        
+    except json.JSONDecodeError as e:
+        print(f"JSON parsing error: {e}")
+        print(f"Response was: {response_text}")
+        # Fallback to simple generation
+        return _generate_quote_simple(requirements, historical_quotes)
+    except Exception as e:
+        print(f"Error in LLM quote generation: {e}")
+        traceback.print_exc()
+        # Fallback to simple generation
+        return _generate_quote_simple(requirements, historical_quotes)
+
+
+def _generate_quote_simple(requirements: str, historical_quotes: List[Dict]) -> Dict:
+    """
+    Simple fallback quote generation without LLM.
+    """
+    import re
     requirements_lower = requirements.lower()
     
-    # Common item patterns from historical data
-    item_patterns = {}
-    price_ranges = {}
+    # Extract participant count
+    participant_match = re.search(r'(\d+)명', requirements)
+    participants = int(participant_match.group(1)) if participant_match else 50
     
-    # Analyze historical quotes to find patterns
-    for quote in historical_quotes:
-        if quote.get('items'):
-            items = json.loads(quote['items']) if isinstance(quote['items'], str) else quote['items']
-            for item in items:
-                item_name = item.get('name', '').lower()
-                unit_price = item.get('unit_price', 0)
-                
-                # Build pattern database
-                for keyword in ['세미나', '강의', '회의', '식사', '숙박', '장소', '장비', '인쇄', '운송']:
-                    if keyword in item_name:
-                        if keyword not in item_patterns:
-                            item_patterns[keyword] = []
-                        item_patterns[keyword].append(unit_price)
+    # Extract days
+    day_match = re.search(r'(\d+)일', requirements)
+    days = int(day_match.group(1)) if day_match else 1
     
-    # Calculate average prices per pattern
-    avg_prices = {}
-    for keyword, prices in item_patterns.items():
-        if prices:
-            avg_prices[keyword] = sum(prices) / len(prices)
-    
-    # Generate quote items based on requirements
     generated_items = []
     total_amount = 0
     
-    # Simple keyword matching and item generation
-    if '세미나' in requirements_lower or 'seminar' in requirements_lower:
-        # Estimate number of participants
-        import re
-        participant_match = re.search(r'(\d+)명', requirements)
-        participants = int(participant_match.group(1)) if participant_match else 50
-        
-        # Add common seminar items
-        if '강의실' in requirements_lower or 'classroom' in requirements_lower:
-            room_count = requirements_lower.count('강의실') or requirements_lower.count('classroom') or 1
-            room_price = avg_prices.get('장소', 50000) * room_count
-            generated_items.append({
-                'name': f'강의실 대여 ({room_count}개)',
-                'unit_price': int(room_price / room_count),
-                'quantity': room_count,
-                'amount': int(room_price)
-            })
-            total_amount += int(room_price)
-        
-        if '식사' in requirements_lower or 'meal' in requirements_lower:
-            meal_price = avg_prices.get('식사', 15000) * participants
-            generated_items.append({
-                'name': f'식사 제공 ({participants}명)',
-                'unit_price': int(avg_prices.get('식사', 15000)),
-                'quantity': participants,
-                'amount': int(meal_price)
-            })
-            total_amount += int(meal_price)
-        
-        if '숙박' in requirements_lower or 'hotel' in requirements_lower:
-            # Estimate days
-            day_match = re.search(r'(\d+)일', requirements)
-            days = int(day_match.group(1)) if day_match else 1
-            
-            hotel_price = avg_prices.get('숙박', 80000) * participants * days
-            generated_items.append({
-                'name': f'호텔 숙박 ({participants}명 × {days}일)',
-                'unit_price': int(avg_prices.get('숙박', 80000)),
-                'quantity': participants * days,
-                'amount': int(hotel_price)
-            })
-            total_amount += int(hotel_price)
+    # Basic item generation
+    if '강의실' in requirements_lower or 'classroom' in requirements_lower:
+        room_count = requirements_lower.count('강의실') or requirements_lower.count('classroom') or 1
+        room_price = 50000 * room_count
+        generated_items.append({
+            'name': f'강의실 대여 ({room_count}개)',
+            'unit_price': 50000,
+            'quantity': room_count,
+            'amount': room_price
+        })
+        total_amount += room_price
     
-    # If no items generated, create a basic estimate
+    if '식사' in requirements_lower or 'meal' in requirements_lower:
+        meal_price = 15000 * participants
+        generated_items.append({
+            'name': f'식사 제공 ({participants}명)',
+            'unit_price': 15000,
+            'quantity': participants,
+            'amount': meal_price
+        })
+        total_amount += meal_price
+    
+    if '숙박' in requirements_lower or 'hotel' in requirements_lower:
+        hotel_price = 80000 * participants * days
+        generated_items.append({
+            'name': f'호텔 숙박 ({participants}명 × {days}일)',
+            'unit_price': 80000,
+            'quantity': participants * days,
+            'amount': hotel_price
+        })
+        total_amount += hotel_price
+    
     if not generated_items:
-        # Default estimate based on requirements length and keywords
-        base_amount = 1000000  # 1 million KRW base
-        if '대규모' in requirements_lower or 'large' in requirements_lower:
-            base_amount *= 3
-        elif '소규모' in requirements_lower or 'small' in requirements_lower:
-            base_amount *= 0.5
-        
         generated_items.append({
             'name': '프로젝트 예산',
-            'unit_price': int(base_amount),
+            'unit_price': 1000000,
             'quantity': 1,
-            'amount': int(base_amount)
+            'amount': 1000000
         })
-        total_amount = int(base_amount)
+        total_amount = 1000000
     
     return {
         'items': generated_items,
