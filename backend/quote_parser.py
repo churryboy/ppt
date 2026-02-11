@@ -249,23 +249,53 @@ def generate_quote_from_requirements(requirements: str, historical_quotes: List[
         print(f"📊 Prepared {len(historical_context)} historical quotes for LLM")
         print(f"   Historical examples length: {len(historical_examples)} characters")
         if historical_examples != "과거 견적서가 없습니다.":
-            print(f"   First 200 chars of examples: {historical_examples[:200]}...")
+            print(f"   First 500 chars of examples: {historical_examples[:500]}...")
+            print(f"   Last 200 chars of examples: ...{historical_examples[-200:]}")
+            # Print all item names from historical quotes
+            all_item_names = []
+            for quote in historical_quotes[:10]:
+                if quote.get('items'):
+                    items = json.loads(quote['items']) if isinstance(quote['items'], str) else quote['items']
+                    for item in items:
+                        all_item_names.append(item.get('name', ''))
+            print(f"   📋 Historical item names found: {', '.join(set(all_item_names))}")
         else:
             print("   ⚠️  No historical quotes available - LLM will generate from scratch")
         
-        prompt = f"""당신은 견적서 생성 전문가입니다. 사용자의 요구사항을 바탕으로 과거 견적서 패턴을 학습하여 새로운 견적을 생성해주세요.
+        if historical_examples != "과거 견적서가 없습니다.":
+            prompt = f"""당신은 견적서 생성 전문가입니다. **반드시 아래의 과거 견적서 예시를 참고하여** 새로운 견적을 생성해야 합니다.
+
+=== 요구사항 ===
+{requirements}
+
+=== 과거 견적서 예시 (반드시 참고) ===
+{historical_examples}
+
+=== 생성 규칙 ===
+1. **과거 견적서의 항목명을 그대로 사용하거나 매우 유사하게 사용**해야 합니다
+2. **과거 견적서의 단가 범위를 참고**하여 비슷한 가격대를 사용해야 합니다
+3. **과거 견적서의 구성 방식을 따라** 비슷한 구조로 작성해야 합니다
+4. 요구사항에 맞게 수량과 총액을 조정하되, **항목명과 단가는 과거 견적서를 최대한 따르세요**
+
+예를 들어, 과거 견적서에 "모더레이션" 항목이 100,000원이었다면, 요구사항이 "모더레이션 60분"일 때도 비슷한 가격대를 사용하세요.
+
+응답 형식 (JSON만):
+{{
+  "items": [
+    {{"name": "항목명(과거 견적서와 동일하거나 유사)", "unit_price": 단가(숫자), "quantity": 수량(숫자), "amount": 금액(숫자)}},
+    ...
+  ],
+  "total_amount": 총액(숫자)
+}}
+
+**중요: 과거 견적서의 항목명과 가격 패턴을 반드시 따라야 합니다. 템플릿 값을 사용하지 마세요.**"""
+        else:
+            prompt = f"""당신은 견적서 생성 전문가입니다. 사용자의 요구사항을 바탕으로 견적을 생성해주세요.
 
 요구사항:
 {requirements}
 
-과거 견적서 예시 (학습 참고용):
-{historical_examples}
-
-위의 과거 견적서 패턴을 **반드시 참고하여**, 요구사항에 맞는 견적서를 생성해주세요. 
-과거 견적서의 항목명, 가격 패턴, 구성 방식을 최대한 유사하게 따라주세요.
-특히 항목명은 과거 견적서에서 사용된 용어를 그대로 사용하거나 유사한 용어를 사용해주세요.
-
-응답 형식은 반드시 다음 JSON 형식으로 해주세요:
+응답 형식 (JSON만):
 {{
   "items": [
     {{"name": "항목명", "unit_price": 단가(숫자), "quantity": 수량(숫자), "amount": 금액(숫자)}},
@@ -278,7 +308,6 @@ def generate_quote_from_requirements(requirements: str, historical_quotes: List[
 - 모든 금액은 원화(KRW) 기준입니다
 - 단가는 정수로, 금액도 정수로 표시해주세요
 - 수량도 정수로 표시해주세요
-- 과거 견적서의 가격 패턴을 참고하여 현실적인 가격을 제시해주세요
 - JSON만 응답하고 다른 설명은 포함하지 마세요"""
 
         print("📤 Sending request to Anthropic Claude API...")
