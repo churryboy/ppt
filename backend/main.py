@@ -778,6 +778,20 @@ async def generate_quote(
         db.commit()
         db.refresh(generated_quote)
         
+        # Sync to Stitch if available
+        stitch_client = get_stitch_client()
+        if stitch_client:
+            try:
+                stitch_data = {
+                    'total_amount': generated_quote.total_amount,
+                    'items': json.loads(generated_quote.items),
+                    'created_at': generated_quote.created_at.isoformat(),
+                    'requirements': generated_quote.requirements
+                }
+                stitch_client.sync_quote(stitch_data)
+            except Exception as e:
+                print(f"⚠️  Stitch sync failed (non-critical): {e}")
+        
         return {
             "success": True,
             "quote": {
