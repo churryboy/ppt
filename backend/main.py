@@ -685,6 +685,20 @@ async def upload_quote(
         db.commit()
         db.refresh(quote)
         
+        # Sync to Stitch if available
+        stitch_client = get_stitch_client()
+        if stitch_client:
+            try:
+                stitch_data = {
+                    'total_amount': quote.total_amount,
+                    'items': json.loads(quote.items),
+                    'created_at': quote.uploaded_at.isoformat(),
+                    'requirements': f"Uploaded: {quote.original_filename}"
+                }
+                stitch_client.sync_quote(stitch_data)
+            except Exception as e:
+                print(f"⚠️  Stitch sync failed (non-critical): {e}")
+        
         return {
             "success": True,
             "quote_id": quote.id,
@@ -797,6 +811,47 @@ async def get_quote_history(
             "created_at": q.created_at.isoformat()
         } for q in quotes]
     }
+
+
+@app.get("/api/stitch/test")
+async def test_stitch_connection(
+    current_user: User = Depends(get_current_user)
+):
+    """Test connection to Stitch MCP server."""
+    stitch_client = get_stitch_client()
+    if not stitch_client:
+        raise HTTPException(status_code=503, detail="Stitch client not configured")
+    
+    try:
+        success = stitch_client.test_connection()
+        return {
+            "success": success,
+            "message": "Stitch connection test completed"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Stitch connection test failed: {str(e)}")
+
+
+@app.get("/api/stitch/quotes")
+async def get_stitch_quotes(
+    current_user: User = Depends(get_current_user),
+    filters: Optional[str] = Query(None)
+):
+    """Get historical quotes from Stitch."""
+    stitch_client = get_stitch_client()
+    if not stitch_client:
+        raise HTTPException(status_code=503, detail="Stitch client not configured")
+    
+    try:
+        filter_dict = json.loads(filters) if filters else None
+        quotes = stitch_client.get_historical_quotes(filter_dict)
+        return {
+            "success": True,
+            "quotes": quotes,
+            "count": len(quotes)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch quotes from Stitch: {str(e)}")
 
 
 @app.post("/api/quotes/{quote_id}/export")
